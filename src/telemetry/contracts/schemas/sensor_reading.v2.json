@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sensor_reading/2",
+  "title": "Sensor reading v2",
+  "description": "The contract every consumer reads. SI-style units, ISO-8601 event time from the device clock, OPC UA-style quality code. operator_ref is a pseudonym created at the edge; raw badge numbers never leave the plant.",
+  "type": "object",
+  "required": ["message_id", "device_id", "plant_id", "line_id", "metric", "value", "unit", "event_time", "seq", "quality", "schema_version"],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "message_id": { "type": "string", "minLength": 8 },
+    "device_id": { "type": "string", "pattern": "^[A-Z]{2}\\d{2}-L\\d-[A-Z]{3}-\\d{2}$" },
+    "plant_id": { "type": "string", "pattern": "^[A-Z]{2}\\d{2}$" },
+    "line_id": { "type": "string", "pattern": "^L\\d$" },
+    "metric": { "enum": ["fryer_temp_c", "vibration_mm_s", "line_speed_m_min", "power_kw", "good_count", "reject_count"] },
+    "value": { "type": "number" },
+    "unit": { "enum": ["C", "mm/s", "m/min", "kW", "count"] },
+    "event_time": { "type": "string", "format": "date-time" },
+    "seq": { "type": "integer", "minimum": 0 },
+    "quality": { "enum": ["GOOD", "UNCERTAIN", "BAD"] },
+    "firmware": { "type": "string" },
+    "operator_ref": { "type": ["string", "null"], "pattern": "^op_[0-9a-f]{16}$" },
+    "gateway_id": { "type": "string" },
+    "gateway_time": { "type": "string", "format": "date-time" },
+    "clock_skew_s": { "type": "number" }
+  },
+  "additionalProperties": false
+}

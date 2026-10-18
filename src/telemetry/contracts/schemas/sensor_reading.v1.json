@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sensor_reading/1",
+  "title": "Sensor reading, firmware 1.x (legacy)",
+  "description": "Emitted by line controllers on firmware 1.x. Temperatures in Fahrenheit, epoch-millisecond timestamps, no quality code. Upcast to v2 at the edge gateway.",
+  "type": "object",
+  "required": ["id", "dev", "tag", "val", "ts", "seq"],
+  "properties": {
+    "id": { "type": "string", "minLength": 8 },
+    "dev": { "type": "string", "pattern": "^[A-Z]{2}\\d{2}-L\\d-[A-Z]{3}-\\d{2}$" },
+    "tag": { "enum": ["temp_f", "vib", "speed", "power", "good", "reject"] },
+    "val": { "type": "number" },
+    "ts": { "type": "integer", "minimum": 0 },
+    "seq": { "type": "integer", "minimum": 0 },
+    "op": { "type": ["string", "null"] }
+  },
+  "additionalProperties": false
+}

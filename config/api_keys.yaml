@@ -1,0 +1,18 @@
+# API keys are stored only as SHA-256 hashes. These three are demo keys for the local run;
+# in Azure the file is mounted from Key Vault and TELEMETRY_ENV=production refuses keys marked demo.
+keys:
+  - name: platform-ops
+    key_sha256: d428fc11ed3fc4326beedaad8207f74367127007c3688aa51b311679c44718a2
+    role: ops
+    plants: ['*']
+    demo: true
+  - name: pl01-maintenance
+    key_sha256: b68d6b25a808b24edc9e3945b194542c52bfaf19029de7bba087a650327aa5e5
+    role: reader
+    plants: [PL01]
+    demo: true
+  - name: de01-quality
+    key_sha256: cc2f399af1fd7941a4084ee4c6f51c463644e8d07055ba571b484dd693a59bea
+    role: reader
+    plants: [DE01]
+    demo: true
