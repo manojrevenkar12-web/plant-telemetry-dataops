@@ -104,6 +104,8 @@ def run(out: Path = Path("demo-output"), minutes: int = 120, kafka: bool = False
             now = devices.SHIFT_START + timedelta(minutes=current_minute + 1)
             process_minute(now)
             current_minute += 1
+            if current_minute % 15 == 0:
+                log(f"  minute {current_minute}: {totals['to_silver']:,} readings in silver, lag {processor.consumer.lag():,}, {time.perf_counter() - t_start:.0f}s elapsed")
             links[outage_plant].up = not (outage_from <= current_minute < outage_to)
             if current_minute == outage_from:
                 log(f"  minute {current_minute}: {outage_plant} loses its network link — gateway buffers locally")

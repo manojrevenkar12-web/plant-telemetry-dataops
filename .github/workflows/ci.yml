@@ -30,12 +30,14 @@ jobs:
 
   kafka-integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       kafka:
         image: apache/kafka:3.9.0
         ports: ["9092:9092"]
     env:
       KAFKA_BOOTSTRAP: localhost:9092
+      PYTHONUNBUFFERED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -60,7 +62,7 @@ jobs:
       - run: .github/run.sh pytest -m kafka -v -p no:warnings
       - name: Full shift through Kafka
         run: |
-          telemetry demo --kafka --out demo-kafka
+          .github/run.sh timeout 1200 telemetry demo --kafka --out demo-kafka
           python -c "import json; r=json.load(open('demo-kafka/report.json')); s=r['stream']; assert r['silver_rows']==r['silver_unique_keys']; assert r['emitted_by_devices']==r['silver_rows']+s['duplicates']+s['dead_letters'], r; print(s)"
 
   terraform:
