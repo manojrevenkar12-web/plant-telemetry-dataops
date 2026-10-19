@@ -19,40 +19,112 @@ from deltalake import DeltaTable, write_deltalake
 from deltalake.exceptions import TableNotFoundError
 
 SCHEMAS: dict[str, pa.Schema] = {
-    "bronze/telemetry_raw": pa.schema([
-        ("topic", pa.string()), ("partition", pa.int32()), ("offset", pa.int64()), ("key", pa.string()), ("value", pa.string()),
-        ("contract", pa.string()), ("ingested_at", pa.timestamp("us", "UTC")), ("ingest_date", pa.date32()),
-    ]),
-    "bronze/dead_letters": pa.schema([
-        ("source", pa.string()), ("reason", pa.string()), ("detail", pa.string()), ("payload", pa.string()), ("received_at", pa.timestamp("us", "UTC")),
-    ]),
-    "silver/readings": pa.schema([
-        ("message_id", pa.string()), ("device_id", pa.string()), ("plant_id", pa.string()), ("line_id", pa.string()), ("metric", pa.string()),
-        ("value", pa.float64()), ("unit", pa.string()), ("event_time", pa.timestamp("us", "UTC")), ("event_date", pa.date32()), ("seq", pa.int64()),
-        ("quality", pa.string()), ("firmware", pa.string()), ("operator_ref", pa.string()), ("gateway_id", pa.string()),
-        ("gateway_time", pa.timestamp("us", "UTC")), ("clock_skew_s", pa.float64()), ("arrival_delay_s", pa.float64()), ("is_late", pa.bool_()),
-        ("in_range", pa.bool_()), ("processed_at", pa.timestamp("us", "UTC")),
-    ]),
-    "silver/historian_1m": pa.schema([
-        ("device_id", pa.string()), ("plant_id", pa.string()), ("line_id", pa.string()), ("metric", pa.string()), ("minute", pa.timestamp("us", "UTC")),
-        ("value", pa.float64()), ("event_date", pa.date32()), ("source_file", pa.string()),
-    ]),
-    "gold/metrics_1m": pa.schema([
-        ("device_id", pa.string()), ("plant_id", pa.string()), ("line_id", pa.string()), ("metric", pa.string()), ("minute", pa.timestamp("us", "UTC")),
-        ("n", pa.int64()), ("avg", pa.float64()), ("min", pa.float64()), ("max", pa.float64()), ("sum", pa.float64()), ("bad_readings", pa.int64()),
-        ("late_readings", pa.int64()), ("source", pa.string()), ("event_date", pa.date32()),
-    ]),
-    "gold/shift_reconciliation": pa.schema([
-        ("plant_id", pa.string()), ("line_id", pa.string()), ("shift_start", pa.timestamp("us", "UTC")), ("sensor_good_packs", pa.float64()),
-        ("mes_good_packs", pa.float64()), ("difference_pct", pa.float64()), ("status", pa.string()), ("checked_at", pa.timestamp("us", "UTC")),
-    ]),
-    "ops/dq_results": pa.schema([
-        ("run_id", pa.string()), ("dataset", pa.string()), ("check", pa.string()), ("success", pa.bool_()), ("observed", pa.string()),
-        ("rows_checked", pa.int64()), ("checked_at", pa.timestamp("us", "UTC")),
-    ]),
+    "bronze/telemetry_raw": pa.schema(
+        [
+            ("topic", pa.string()),
+            ("partition", pa.int32()),
+            ("offset", pa.int64()),
+            ("key", pa.string()),
+            ("value", pa.string()),
+            ("contract", pa.string()),
+            ("ingested_at", pa.timestamp("us", "UTC")),
+            ("ingest_date", pa.date32()),
+        ]
+    ),
+    "bronze/dead_letters": pa.schema(
+        [
+            ("source", pa.string()),
+            ("reason", pa.string()),
+            ("detail", pa.string()),
+            ("payload", pa.string()),
+            ("received_at", pa.timestamp("us", "UTC")),
+        ]
+    ),
+    "silver/readings": pa.schema(
+        [
+            ("message_id", pa.string()),
+            ("device_id", pa.string()),
+            ("plant_id", pa.string()),
+            ("line_id", pa.string()),
+            ("metric", pa.string()),
+            ("value", pa.float64()),
+            ("unit", pa.string()),
+            ("event_time", pa.timestamp("us", "UTC")),
+            ("event_date", pa.date32()),
+            ("seq", pa.int64()),
+            ("quality", pa.string()),
+            ("firmware", pa.string()),
+            ("operator_ref", pa.string()),
+            ("gateway_id", pa.string()),
+            ("gateway_time", pa.timestamp("us", "UTC")),
+            ("clock_skew_s", pa.float64()),
+            ("arrival_delay_s", pa.float64()),
+            ("is_late", pa.bool_()),
+            ("in_range", pa.bool_()),
+            ("processed_at", pa.timestamp("us", "UTC")),
+        ]
+    ),
+    "silver/historian_1m": pa.schema(
+        [
+            ("device_id", pa.string()),
+            ("plant_id", pa.string()),
+            ("line_id", pa.string()),
+            ("metric", pa.string()),
+            ("minute", pa.timestamp("us", "UTC")),
+            ("value", pa.float64()),
+            ("event_date", pa.date32()),
+            ("source_file", pa.string()),
+        ]
+    ),
+    "gold/metrics_1m": pa.schema(
+        [
+            ("device_id", pa.string()),
+            ("plant_id", pa.string()),
+            ("line_id", pa.string()),
+            ("metric", pa.string()),
+            ("minute", pa.timestamp("us", "UTC")),
+            ("n", pa.int64()),
+            ("avg", pa.float64()),
+            ("min", pa.float64()),
+            ("max", pa.float64()),
+            ("sum", pa.float64()),
+            ("bad_readings", pa.int64()),
+            ("late_readings", pa.int64()),
+            ("source", pa.string()),
+            ("event_date", pa.date32()),
+        ]
+    ),
+    "gold/shift_reconciliation": pa.schema(
+        [
+            ("plant_id", pa.string()),
+            ("line_id", pa.string()),
+            ("shift_start", pa.timestamp("us", "UTC")),
+            ("sensor_good_packs", pa.float64()),
+            ("mes_good_packs", pa.float64()),
+            ("difference_pct", pa.float64()),
+            ("status", pa.string()),
+            ("checked_at", pa.timestamp("us", "UTC")),
+        ]
+    ),
+    "ops/dq_results": pa.schema(
+        [
+            ("run_id", pa.string()),
+            ("dataset", pa.string()),
+            ("check", pa.string()),
+            ("success", pa.bool_()),
+            ("observed", pa.string()),
+            ("rows_checked", pa.int64()),
+            ("checked_at", pa.timestamp("us", "UTC")),
+        ]
+    ),
 }
 
-PARTITIONS = {"bronze/telemetry_raw": ["ingest_date"], "silver/readings": ["event_date"], "silver/historian_1m": ["event_date"], "gold/metrics_1m": ["event_date"]}
+PARTITIONS = {
+    "bronze/telemetry_raw": ["ingest_date"],
+    "silver/readings": ["event_date"],
+    "silver/historian_1m": ["event_date"],
+    "gold/metrics_1m": ["event_date"],
+}
 MERGE_KEYS = {
     "silver/readings": ["device_id", "metric", "seq"],
     "silver/historian_1m": ["device_id", "metric", "minute"],
@@ -112,7 +184,11 @@ class Lake:
         lf = pl.scan_delta(self.uri(name), storage_options=self.storage_options)
         for col, op, value in filters or []:
             c = pl.col(col)
-            lf = lf.filter({"=": c == value, "!=": c != value, "in": c.is_in(list(value)), ">=": c >= value, ">": c > value, "<=": c <= value, "<": c < value}[op])
+            lf = lf.filter(
+                {"=": c == value, "!=": c != value, "in": c.is_in(list(value)), ">=": c >= value, ">": c > value, "<=": c <= value, "<": c < value}[
+                    op
+                ]
+            )
         if columns:
             lf = lf.select(columns)
         return lf.collect()

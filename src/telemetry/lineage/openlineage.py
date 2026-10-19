@@ -69,7 +69,11 @@ class LineageRun:
                 facets["schema"] = sf
             if n in self.assertions:
                 facets["dataQualityAssertions"] = data_quality_assertions_dataset.DataQualityAssertionsDatasetFacet(assertions=self.assertions[n])
-            out_facets = {"outputStatistics": output_statistics_output_dataset.OutputStatisticsOutputDatasetFacet(rowCount=self.row_counts[n])} if n in self.row_counts else {}
+            out_facets = (
+                {"outputStatistics": output_statistics_output_dataset.OutputStatisticsOutputDatasetFacet(rowCount=self.row_counts[n])}
+                if n in self.row_counts
+                else {}
+            )
             outs.append(OutputDataset(namespace=ns(n), name=n, facets=facets, outputFacets=out_facets))
         return ins, outs
 
@@ -77,8 +81,13 @@ class LineageRun:
         ins, outs = self._datasets()
         run_facets = {"errorMessage": error_message_run.ErrorMessageRunFacet(message=error, programmingLanguage="python")} if error else {}
         return RunEvent(
-            eventType=state, eventTime=datetime.now(UTC).isoformat(), run=Run(runId=self.run_id, facets=run_facets),
-            job=Job(namespace=NAMESPACE, name=self.job), inputs=ins, outputs=outs, producer=PRODUCER,
+            eventType=state,
+            eventTime=datetime.now(UTC).isoformat(),
+            run=Run(runId=self.run_id, facets=run_facets),
+            job=Job(namespace=NAMESPACE, name=self.job),
+            inputs=ins,
+            outputs=outs,
+            producer=PRODUCER,
         )
 
 
