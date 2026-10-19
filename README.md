@@ -84,7 +84,7 @@ Also measured: 7 days of historian export (362,880 rows) backfill in about 3 sec
 ## Honest limits
 
 - The data is simulated. The failure modes are modelled on real plant problems, but no real OT system (OPC UA server, historian, MES) was connected.
-- Kafka is exercised in CI against a real Apache Kafka broker (integration test plus a full shift). It was not run against Azure Event Hubs.
+- Kafka is exercised in CI against a real Apache Kafka broker: an integration test, plus the full shift through Kafka with an exactly-once check (about 17 minutes, because every micro-batch waits out a 1-second poll; not tuned). It was not run against Azure Event Hubs.
 - The Terraform passes `fmt` and `validate` in CI and has not been applied to a subscription. Two things would need checking in a first deployment: delta-rs managed-identity auth inside Container Apps, and moving the model registry from a local folder to ADLS or MLflow.
 - The processor is single-threaded Python. That is enough for this demo (about 650 readings per second end to end, simulator included). A plant network with many thousands of tags per second would use Spark Structured Streaming or Flink with the same contracts, keys and table design.
 - The gateway outbox commits every message with SQLite WAL and `synchronous=NORMAL`: it survives a gateway crash or restart (tested), but a power loss can drop the last few commits.
