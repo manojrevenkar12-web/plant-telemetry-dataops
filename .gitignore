@@ -6,10 +6,10 @@ dist/
 .pytest_cache/
 .ruff_cache/
 .venv/
-demo-output/
-lake/
-lineage/
-models/
+/demo-output/
+/lake/
+/lineage/
+/models/
 *.db
 *.db-wal
 *.db-shm
