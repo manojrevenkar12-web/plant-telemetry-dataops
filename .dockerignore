@@ -1,0 +1,11 @@
+.git
+**/__pycache__
+*.egg-info
+demo-output
+lake
+lineage
+models
+infra
+tests
+.pytest_cache
+.ruff_cache

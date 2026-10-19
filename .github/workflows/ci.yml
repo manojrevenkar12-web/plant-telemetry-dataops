@@ -1,0 +1,96 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests
+      - run: ruff format --check src tests
+      - name: Contract compatibility (v2 against itself must pass)
+        run: telemetry contracts-check src/telemetry/contracts/schemas/sensor_reading.v2.json src/telemetry/contracts/schemas/sensor_reading.v2.json
+      - run: pytest -m "not kafka"
+      - name: Demo report
+        run: |
+          telemetry demo --out demo-output
+          python -c "import json; r=json.load(open('demo-output/report.json')); print(json.dumps({k: r[k] for k in ('stream','outage','reconciliation','dq','model')}, indent=1))" >> "$GITHUB_STEP_SUMMARY"
+
+  kafka-integration:
+    runs-on: ubuntu-latest
+    services:
+      kafka:
+        image: apache/kafka:3.9.0
+        ports: ["9092:9092"]
+    env:
+      KAFKA_BOOTSTRAP: localhost:9092
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Wait for the broker
+        run: |
+          python - <<'PY'
+          import time
+          from confluent_kafka.admin import AdminClient
+          for i in range(60):
+              try:
+                  AdminClient({"bootstrap.servers": "localhost:9092"}).list_topics(timeout=2)
+                  print("broker up"); break
+              except Exception as exc:
+                  time.sleep(2)
+          else:
+              raise SystemExit("broker did not start")
+          PY
+      - run: pytest -m kafka -v
+      - name: Full shift through Kafka
+        run: |
+          telemetry demo --kafka --out demo-kafka
+          python -c "import json; r=json.load(open('demo-kafka/report.json')); s=r['stream']; assert r['silver_rows']==r['silver_unique_keys']; assert r['emitted_by_devices']==r['silver_rows']+s['duplicates']+s['dead_letters'], r; print(s)"
+
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform fmt -check -diff -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+
+  prometheus-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker run --rm -v "$PWD/ops/prometheus:/rules" --entrypoint promtool prom/prometheus:v3.5.0 check rules /rules/alerts.yml
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t plant-telemetry .
+      - name: Smoke test the image
+        run: |
+          docker volume create data
+          docker run --rm -v data:/data plant-telemetry telemetry demo --out /data --minutes 30 --historian-days 1
+          docker run -d --name api -p 8000:8000 -v data:/data plant-telemetry
+          for i in $(seq 1 30); do curl -fs localhost:8000/healthz && break; sleep 1; done
+          curl -fs -H "X-API-Key: pl01-demo-key" localhost:8000/v1/lines/PL01/L2/health
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/v1/devices)" = "401"

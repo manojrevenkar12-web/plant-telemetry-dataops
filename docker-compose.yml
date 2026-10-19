@@ -1,0 +1,50 @@
+# Full local stack with a real Kafka broker:
+#   docker compose up --build
+# The demo job simulates a shift through Kafka into the lake, then the API serves it on :8000
+# and Prometheus (with the alert rules) scrapes it on :9090.
+services:
+  kafka:
+    image: apache/kafka:3.9.0
+    ports: ["9092:9092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 5s
+      retries: 20
+
+  demo:
+    build: .
+    command: ["telemetry", "demo", "--kafka", "--out", "/data"]
+    environment:
+      KAFKA_BOOTSTRAP: kafka:9092
+    volumes: ["lake:/data"]
+    depends_on:
+      kafka: { condition: service_healthy }
+
+  api:
+    build: .
+    ports: ["8000:8000"]
+    volumes: ["lake:/data"]
+    depends_on:
+      demo: { condition: service_completed_successfully }
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    ports: ["9090:9090"]
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    depends_on: [api]
+
+volumes:
+  lake: {}

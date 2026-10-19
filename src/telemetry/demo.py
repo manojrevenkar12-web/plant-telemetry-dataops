@@ -48,8 +48,9 @@ def _bus(kafka: bool, run_id: str):
 
 def run(out: Path = Path("demo-output"), minutes: int = 120, kafka: bool = False, historian_days: int = 7, log=print) -> dict:
     t_start = time.perf_counter()
-    if out.exists():
-        shutil.rmtree(out)
+    if out.exists():  # clear the contents, not the folder itself (it may be a mounted volume)
+        for child in out.iterdir():
+            shutil.rmtree(child) if child.is_dir() else child.unlink()
     (out / "outbox").mkdir(parents=True)
     lake = Lake(out / "lake")
     lineage_log = out / "lineage" / "events.jsonl"
@@ -122,7 +123,10 @@ def run(out: Path = Path("demo-output"), minutes: int = 120, kafka: bool = False
         gateways[em.plant_id].handle(em.payload, em.sent_at)
     links[outage_plant].up = True
     end = devices.SHIFT_START + timedelta(minutes=minutes)
-    process_minute(end + timedelta(minutes=1))
+    for _ in range(30):  # drain: with Kafka, records can still be in flight after one empty poll
+        process_minute(end + timedelta(minutes=1))
+        if processor.consumer.lag() == 0 and all(g.buffered() == 0 for g in gateways.values()):
+            break
     stream_seconds = round(time.perf_counter() - t_start, 1)
     log(
         f"  stream done in {stream_seconds}s: {totals['to_silver']:,} readings in silver, {totals['duplicates']:,} duplicates dropped, "

@@ -1,0 +1,53 @@
+groups:
+  - name: plant-telemetry
+    rules:
+      - alert: ProcessorFallingBehind
+        expr: telemetry_consumer_lag_records > 50000
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Stream processor is {{ $value }} records behind"
+          runbook: "Check processor replicas vs partitions and batch duration; scale out up to the partition count."
+
+      - alert: WatermarkStalled
+        expr: telemetry_watermark_delay_seconds > 1800
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "Event-time watermark is {{ $value | humanizeDuration }} behind wall clock"
+          runbook: "Either no plant is sending (check gateways) or the processor is stuck."
+
+      - alert: DeadLetterSpike
+        expr: sum(rate(telemetry_dead_letters_total[10m])) / clamp_min(sum(rate(telemetry_records_consumed_total[10m])), 1) > 0.01
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "More than 1% of records are dead-lettered"
+          runbook: "Group bronze/dead_letters by reason; a contract_v2 spike usually means a firmware rollout at one plant."
+
+      - alert: GatewayBuffering
+        expr: telemetry_gateway_buffered_messages > 10000
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Gateway {{ $labels.plant }} is buffering {{ $value }} messages (plant link down?)"
+
+      - alert: GatewayDroppingData
+        expr: increase(telemetry_gateway_dropped_total[15m]) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: "Gateway {{ $labels.plant }} outbox is full and dropping the oldest readings"
+
+      - alert: DataQualityFailed
+        expr: telemetry_dq_checks_failed > 0
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $value }} data-quality checks failed on {{ $labels.dataset }}"
+          runbook: "GET /v1/pipeline/status lists the failed checks; the OpenLineage run carries the same assertions."
+
+      - alert: ApiErrors
+        expr: sum(rate(api_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(api_requests_total[5m])), 1) > 0.02
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "API 5xx rate above 2%"
