@@ -18,11 +18,11 @@ jobs:
           python-version: "3.13"
           cache: pip
       - run: pip install -e ".[dev]"
-      - run: ruff check src tests
-      - run: ruff format --check src tests
+      - run: .github/run.sh ruff check --output-format=full src tests
+      - run: .github/run.sh ruff format --check --diff src tests
       - name: Contract compatibility (v2 against itself must pass)
         run: telemetry contracts-check src/telemetry/contracts/schemas/sensor_reading.v2.json src/telemetry/contracts/schemas/sensor_reading.v2.json
-      - run: pytest -m "not kafka"
+      - run: .github/run.sh pytest -m "not kafka"
       - name: Demo report
         run: |
           telemetry demo --out demo-output
@@ -57,7 +57,7 @@ jobs:
           else:
               raise SystemExit("broker did not start")
           PY
-      - run: pytest -m kafka -v
+      - run: .github/run.sh pytest -m kafka -v -p no:warnings
       - name: Full shift through Kafka
         run: |
           telemetry demo --kafka --out demo-kafka
@@ -89,8 +89,8 @@ jobs:
       - name: Smoke test the image
         run: |
           docker volume create data
-          docker run --rm -v data:/data plant-telemetry telemetry demo --out /data --minutes 30 --historian-days 1
+          .github/run.sh docker run --rm -v data:/data plant-telemetry telemetry demo --out /data --minutes 30 --historian-days 1
           docker run -d --name api -p 8000:8000 -v data:/data plant-telemetry
           for i in $(seq 1 30); do curl -fs localhost:8000/healthz && break; sleep 1; done
-          curl -fs -H "X-API-Key: pl01-demo-key" localhost:8000/v1/lines/PL01/L2/health
+          curl -fs -H "X-API-Key: pl01-demo-key" localhost:8000/v1/lines/PL01/L2/health || { .github/run.sh docker logs api; exit 1; }
           test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8000/v1/devices)" = "401"
